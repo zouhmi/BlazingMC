@@ -24,8 +24,10 @@ import com.blazingmc.server.player.EnchantmentManager;
 import com.blazingmc.server.player.Player;
 import com.blazingmc.server.player.PlayerManager;
 import com.blazingmc.server.player.TabListManager;
+import com.blazingmc.server.plugin.BukkitServerAdapter;
 import com.blazingmc.server.scoreboard.ScoreboardManager;
 import com.blazingmc.server.tick.TickScheduler;
+import com.blazingmc.plugin.NativePluginManager;
 import com.blazingmc.world.World;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
@@ -38,6 +40,7 @@ import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.channel.ChannelHandlerContext;
 
 import javax.crypto.Cipher;
+import java.nio.file.Path;
 import java.util.UUID;
 
 public class BlazingServer implements ServerInterface {
@@ -63,6 +66,8 @@ public class BlazingServer implements ServerInterface {
     private final FurnaceManager furnaceManager;
     private final EnchantmentManager enchantmentManager;
     private final ProjectileManager projectileManager;
+    private final NativePluginManager pluginManager;
+    private final BukkitServerAdapter bukkitServer;
     private final World world;
     private EventLoopGroup bossGroup;
     private EventLoopGroup workerGroup;
@@ -86,6 +91,12 @@ public class BlazingServer implements ServerInterface {
         this.furnaceManager = new FurnaceManager();
         this.enchantmentManager = new EnchantmentManager();
         this.projectileManager = new ProjectileManager(this);
+        this.pluginManager = new NativePluginManager(
+            Path.of(System.getProperty("blazingmc.plugins", "plugins")),
+            null
+        );
+        this.bukkitServer = new BukkitServerAdapter(this, pluginManager);
+        this.pluginManager.setServer(bukkitServer);
         this.world = new World(config.getLevelName(), config.getLevelSeed(), config.getViewDistance());
         this.redstoneManager = new RedstoneManager(world);
         this.signManager = new SignManager(world);
@@ -98,6 +109,7 @@ public class BlazingServer implements ServerInterface {
     public void start() {
         ConsoleLogger.serverStart("1.0.0", config.getPort());
         running = true;
+        pluginManager.loadPlugins();
         
         tickScheduler.start();
         startNetworking();
@@ -260,12 +272,17 @@ public class BlazingServer implements ServerInterface {
     public EnchantmentManager getEnchantmentManager() {
         return enchantmentManager;
     }
+
+    public NativePluginManager getPluginManager() {
+        return pluginManager;
+    }
     
     public void stop() {
         ConsoleLogger.serverStop();
         running = false;
         playerManager.shutdown();
         tickScheduler.stop();
+        pluginManager.close();
         shutdownNetworking();
         ConsoleLogger.info("Server stopped.");
     }

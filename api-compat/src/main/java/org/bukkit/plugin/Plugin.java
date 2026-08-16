@@ -12,6 +12,7 @@ import java.io.InputStream;
 import java.util.List;
 
 public interface Plugin {
+    String getName();
     File getDataFolder();
     PluginDescriptionFile getDescription();
     FileConfiguration getConfig();

@@ -2,6 +2,7 @@ package org.bukkit.plugin.java;
 
 import org.bukkit.Server;
 import org.bukkit.command.Command;
+import org.bukkit.command.CommandMap;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.event.Listener;
@@ -21,13 +22,14 @@ import java.util.logging.Logger;
 public abstract class JavaPlugin implements Plugin {
     private boolean enabled;
     private boolean naggable;
-    private final File dataFolder;
-    private final PluginDescriptionFile description;
-    private final File file;
-    private final ClassLoader classLoader;
+    private File dataFolder;
+    private PluginDescriptionFile description;
+    private File file;
+    private ClassLoader classLoader;
     private Server server;
-    private final Logger logger;
+    private Logger logger;
     private FileConfiguration config;
+    private CommandMap commandMap;
 
     public JavaPlugin() {
         this.description = new PluginDescriptionFile(getClass().getSimpleName(), "unknown", getClass().getName());
@@ -41,10 +43,23 @@ public abstract class JavaPlugin implements Plugin {
     public abstract void onEnable();
     public abstract void onDisable();
 
+    public void initialize(PluginDescriptionFile description, File dataFolder, File file, ClassLoader classLoader) {
+        this.description = description;
+        this.dataFolder = dataFolder;
+        this.file = file;
+        this.classLoader = classLoader;
+        this.logger = Logger.getLogger(description.getName());
+    }
+
     public void onLoad() {
     }
 
     public void onDisableConfigErrors() {
+    }
+
+    @Override
+    public String getName() {
+        return description.getName();
     }
 
     @Override
@@ -175,6 +190,14 @@ public abstract class JavaPlugin implements Plugin {
 
     public Logger getLogger() {
         return logger;
+    }
+
+    public Command getCommand(String name) {
+        return commandMap == null || name == null ? null : commandMap.getCommand(name);
+    }
+
+    public void setCommandMap(CommandMap commandMap) {
+        this.commandMap = commandMap;
     }
 
     @Override

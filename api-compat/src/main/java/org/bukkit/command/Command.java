@@ -8,6 +8,7 @@ public class Command {
     private String usageMessage;
     private String permission;
     private Plugin plugin;
+    private CommandExecutor executor;
     
     public Command(String name) {
         this.name = name;
@@ -32,9 +33,11 @@ public class Command {
     public void setPermission(String permission) { this.permission = permission; }
     public Plugin getPlugin() { return plugin; }
     public void setPlugin(Plugin plugin) { this.plugin = plugin; }
+    public CommandExecutor getExecutor() { return executor; }
+    public void setExecutor(CommandExecutor executor) { this.executor = executor; }
     
     public boolean execute(CommandSender sender, String commandLabel, String[] args) {
-        return false;
+        return executor != null && executor.onCommand(sender, this, commandLabel, args);
     }
     
     @Override

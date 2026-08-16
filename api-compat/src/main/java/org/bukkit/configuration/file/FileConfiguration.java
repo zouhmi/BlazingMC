@@ -16,6 +16,7 @@ public class FileConfiguration implements Configuration, ConfigurationSection {
     private final Map<String, Object> values;
     private final Map<String, Object> defaults;
     private final String prefix;
+    private final FileConfigurationOptions options;
 
     public FileConfiguration() {
         this(new LinkedHashMap<>(), new LinkedHashMap<>(), "");
@@ -25,6 +26,11 @@ public class FileConfiguration implements Configuration, ConfigurationSection {
         this.values = values;
         this.defaults = defaults;
         this.prefix = prefix;
+        this.options = new FileConfigurationOptions(this);
+    }
+
+    public FileConfigurationOptions options() {
+        return options;
     }
 
     @Override
