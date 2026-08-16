@@ -2,9 +2,12 @@ package com.blazingmc.protocol.handler;
 
 import com.blazingmc.protocol.ProtocolState;
 import io.netty.buffer.ByteBuf;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import io.netty.channel.ChannelHandlerContext;
 
 public class HandshakeHandler {
+    private static final Logger logger = LoggerFactory.getLogger(HandshakeHandler.class);
     private ProtocolState nextState;
     private String serverAddress;
     private int serverPort;
@@ -19,11 +22,8 @@ public class HandshakeHandler {
         int nextStateId = readVarInt(data);
         nextState = ProtocolState.values()[nextStateId];
         
-        System.out.println("Handshake received:");
-        System.out.println("  Protocol version: " + protocolVersion);
-        System.out.println("  Server address: " + serverAddress);
-        System.out.println("  Server port: " + serverPort);
-        System.out.println("  Next state: " + nextState);
+        logger.debug("Handshake received: protocol={}, address={}, port={}, nextState={}",
+                     protocolVersion, serverAddress, serverPort, nextState);
     }
     
     public ProtocolState getNextState() {

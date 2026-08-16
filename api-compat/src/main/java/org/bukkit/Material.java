@@ -403,6 +403,14 @@ public enum Material {
     }
     
     public boolean isEdible() {
-        return false;
+        return switch (this) {
+            case APPLE, GOLDEN_APPLE, BREAD, CARROT, POTATO, BAKED_POTATO,
+                 BEEF, COOKED_BEEF, PORKCHOP, COOKED_PORKCHOP, CHICKEN,
+                 COOKED_CHICKEN, MUTTON, COOKED_MUTTON, RABBIT, COOKED_RABBIT,
+                 COD, COOKED_COD, SALMON, COOKED_SALMON, MELON, COOKIE, CAKE,
+                 PUMPKIN_PIE, MUSHROOM_STEW,
+                 BEETROOT_SOUP, RABBIT_STEW, MILK_BUCKET, HONEY_BOTTLE -> true;
+            default -> false;
+        };
     }
 }

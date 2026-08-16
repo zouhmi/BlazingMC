@@ -6,12 +6,15 @@ import com.blazingmc.protocol.codec.PacketEncoder;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.crypto.Cipher;
 import java.nio.ByteBuffer;
 import java.security.NoSuchAlgorithmException;
 
 public class MinecraftProtocolHandler extends SimpleChannelInboundHandler<PacketDecoder.PacketData> {
+    private static final Logger logger = LoggerFactory.getLogger(MinecraftProtocolHandler.class);
     private ProtocolState currentState = ProtocolState.HANDSHAKE;
     private final HandshakeHandler handshakeHandler;
     private final StatusHandler statusHandler;
@@ -67,7 +70,7 @@ public class MinecraftProtocolHandler extends SimpleChannelInboundHandler<Packet
         if (packetId == 0x00) {
             handshakeHandler.handle(ctx, data);
             currentState = handshakeHandler.getNextState();
-            System.out.println("Transitioning to state: " + currentState);
+            logger.debug("Transitioning to state: {}", currentState);
             
                 if (currentState == ProtocolState.STATUS) {
                 statusHandler.updateOnlinePlayers(server.getOnlinePlayerCount());
@@ -104,15 +107,14 @@ public class MinecraftProtocolHandler extends SimpleChannelInboundHandler<Packet
                         playerJoined = true;
                         
                         currentState = ProtocolState.PLAY;
-                        System.out.println("Player " + loginHandler.getUsername() + " joined the game");
+                        logger.info("Player {} joined the game", loginHandler.getUsername());
                         
                         sendJoinGamePacket(ctx);
                     }
                 }
             }
         } catch (Exception e) {
-            System.out.println("Error handling login: " + e.getMessage());
-            e.printStackTrace();
+            logger.error("Error handling login", e);
         }
     }
     
@@ -204,7 +206,7 @@ public class MinecraftProtocolHandler extends SimpleChannelInboundHandler<Packet
     
     private void handleConfirmTeleport(ChannelHandlerContext ctx, ByteBuf data) {
         int teleportId = readVarInt(data);
-        System.out.println("Confirm teleport: " + teleportId);
+        logger.debug("Confirmed teleport: {}", teleportId);
     }
     
     private void handleClickContainer(ChannelHandlerContext ctx, ByteBuf data) {
@@ -266,12 +268,12 @@ public class MinecraftProtocolHandler extends SimpleChannelInboundHandler<Packet
     
     private void handleSetHeldItem(ChannelHandlerContext ctx, ByteBuf data) {
         byte slot = data.readByte();
-        System.out.println("Set held item: " + slot);
+        logger.debug("Set held item: {}", slot);
     }
     
     private void handleAnimate(ChannelHandlerContext ctx, ByteBuf data) {
         int hand = readVarInt(data);
-        System.out.println("Animate: hand=" + hand);
+        logger.debug("Animate: hand={}", hand);
     }
     
     private void handlePlayerAbilities(ChannelHandlerContext ctx, ByteBuf data) {
@@ -284,8 +286,8 @@ public class MinecraftProtocolHandler extends SimpleChannelInboundHandler<Packet
         boolean allowFlying = (flags & 0x04) != 0;
         boolean creativeMode = (flags & 0x08) != 0;
         
-        System.out.println("Player abilities: invulnerable=" + invulnerable + " flying=" + flying + 
-                          " allowFlying=" + allowFlying + " creativeMode=" + creativeMode);
+        logger.debug("Player abilities: invulnerable={}, flying={}, allowFlying={}, creativeMode={}",
+                     invulnerable, flying, allowFlying, creativeMode);
     }
     
     private void handlePlayerDigging(ChannelHandlerContext ctx, ByteBuf data) {
@@ -487,7 +489,7 @@ public class MinecraftProtocolHandler extends SimpleChannelInboundHandler<Packet
         long timestamp = data.readLong();
         long salt = data.readLong();
         
-        System.out.println("Chat message: " + message);
+        logger.debug("Chat message received from {}", loginHandler != null ? loginHandler.getUsername() : "unknown");
         
         if (loginHandler != null) {
             PlayerInterface player = server.getPlayerManager().getPlayer(loginHandler.getUuid());
@@ -500,7 +502,7 @@ public class MinecraftProtocolHandler extends SimpleChannelInboundHandler<Packet
     private void handleCommand(ChannelHandlerContext ctx, ByteBuf data) {
         String command = readString(data);
         
-        System.out.println("Command: " + command);
+        logger.debug("Command received: {}", command);
         
         if (loginHandler != null) {
             PlayerInterface player = server.getPlayerManager().getPlayer(loginHandler.getUuid());
@@ -520,13 +522,8 @@ public class MinecraftProtocolHandler extends SimpleChannelInboundHandler<Packet
         boolean enableTextFiltering = data.readBoolean();
         boolean allowServerListings = data.readBoolean();
         
-        System.out.println("Client information:");
-        System.out.println("  Locale: " + locale);
-        System.out.println("  View distance: " + viewDistance);
-        System.out.println("  Chat mode: " + chatMode);
-        System.out.println("  Chat colors: " + chatColors);
-        System.out.println("  Skin parts: " + skinParts);
-        System.out.println("  Main hand: " + mainHand);
+        logger.debug("Client information: locale={}, viewDistance={}, chatMode={}, chatColors={}, skinParts={}, mainHand={}",
+                     locale, viewDistance, chatMode, chatColors, skinParts, mainHand);
         
     }
     
@@ -535,11 +532,11 @@ public class MinecraftProtocolHandler extends SimpleChannelInboundHandler<Packet
         byte[] messageData = new byte[data.readableBytes()];
         data.readBytes(messageData);
         
-        System.out.println("Plugin message: " + channel);
+        logger.debug("Plugin message received: {}", channel);
         
         if (channel.equals("minecraft:brand")) {
             String brand = new String(messageData);
-            System.out.println("Client brand: " + brand);
+            logger.debug("Client brand: {}", brand);
         }
     }
     
@@ -637,23 +634,23 @@ public class MinecraftProtocolHandler extends SimpleChannelInboundHandler<Packet
         
         ctx.writeAndFlush(new PacketEncoder.PacketData(0x29, buf));
         
-        System.out.println("Join game packet sent");
+        logger.debug("Join game packet sent");
     }
     
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-        cause.printStackTrace();
+        logger.error("Protocol handler failure", cause);
         ctx.close();
     }
     
     @Override
     public void channelActive(ChannelHandlerContext ctx) throws Exception {
-        System.out.println("Client connected: " + ctx.channel().remoteAddress());
+        logger.info("Client connected: {}", ctx.channel().remoteAddress());
     }
     
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-        System.out.println("Client disconnected: " + ctx.channel().remoteAddress());
+        logger.info("Client disconnected: {}", ctx.channel().remoteAddress());
         keepAliveHandler.removeContext(ctx);
         
         if (playerJoined && loginHandler != null) {

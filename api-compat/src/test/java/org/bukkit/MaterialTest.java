@@ -67,7 +67,7 @@ class MaterialTest {
     
     @Test
     void testEdibleItems() {
-        assertFalse(Material.COMPASS.isEdible(), "COMPASS should not be edible (not implemented)");
+        assertFalse(Material.COMPASS.isEdible(), "COMPASS should not be edible");
     }
     
     @Test

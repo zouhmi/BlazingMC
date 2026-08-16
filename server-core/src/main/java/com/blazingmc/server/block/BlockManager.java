@@ -6,6 +6,7 @@ import com.blazingmc.protocol.handler.PlayerInterface;
 import com.blazingmc.server.BlazingServer;
 import com.blazingmc.server.inventory.ItemStack;
 import com.blazingmc.server.player.Player;
+import com.blazingmc.server.player.ToolDurabilityManager;
 import com.blazingmc.world.World;
 import com.blazingmc.world.chunk.Chunk;
 import org.bukkit.Material;
@@ -145,6 +146,10 @@ public class BlockManager implements BlockManagerInterface {
         if (blockType != Material.AIR) {
             world.setBlockAt(x, y, z, Material.AIR);
             
+            if (player instanceof Player blazePlayer) {
+                blazePlayer.getInventory().addItem(new ItemStack(blockType));
+                damageHeldTool(blazePlayer, blockType);
+            }
             sendBlockChange(player, x, y, z, Material.AIR);
             sendBlockBreakAnimation(player, x, y, z, 10);
             
@@ -253,10 +258,22 @@ public class BlockManager implements BlockManagerInterface {
             return;
         }
         
-        Material placeBlock = Material.STONE;
-        
+        if (!(player instanceof Player blazePlayer)) {
+            return;
+        }
+        int heldSlot = Math.max(0, Math.min(8, blazePlayer.getMainHand()));
+        ItemStack heldItem = blazePlayer.getInventory().getItem(heldSlot);
+        if (heldItem == null || heldItem.isEmpty() || !heldItem.getType().isBlock()) {
+            return;
+        }
+        Material placeBlock = heldItem.getType();
         world.setBlockAt(placeX, placeY, placeZ, placeBlock);
-        
+        if (!blazePlayer.isCreativeMode()) {
+            heldItem.removeAmount(1);
+            if (heldItem.isEmpty()) {
+                blazePlayer.getInventory().setItem(heldSlot, null);
+            }
+        }
         sendBlockChange(player, placeX, placeY, placeZ, placeBlock);
         
         ConsoleLogger.debug("Block placed: " + placeBlock.name() + " at " + placeX + ", " + placeY + ", " + placeZ);
@@ -267,9 +284,7 @@ public class BlockManager implements BlockManagerInterface {
     private boolean isInteractiveBlock(Material material) {
         return material == Material.CHEST || material == Material.ENDER_CHEST || 
                material == Material.FURNACE || material == Material.CRAFTING_TABLE ||
-               material == Material.BREWING_STAND || material == Material.ANVIL ||
-               material == Material.BEACON || material == Material.TRAPPED_CHEST ||
-               material == Material.ENCHANTING_TABLE;
+               material == Material.TRAPPED_CHEST || material == Material.ENCHANTING_TABLE;
     }
     
     private void openContainer(PlayerInterface player, Material blockType, int x, int y, int z) {
@@ -281,20 +296,60 @@ public class BlockManager implements BlockManagerInterface {
             case FURNACE -> server.getContainerManager().openFurnace(player, x, y, z);
             case ENCHANTING_TABLE -> server.getContainerManager().openEnchanting(player, x, y, z);
             case CRAFTING_TABLE -> server.getContainerManager().openCraftingTable(player, x, y, z);
-            default -> ConsoleLogger.debug("Interactive block not implemented: " + blockType.name());
+            default -> { }
         }
     }
     
     private void sendBlockChange(PlayerInterface player, int x, int y, int z, Material material) {
-        player.sendPacket(0x09, new byte[]{(byte) x, (byte) y, (byte) z, (byte) material.ordinal()});
+        java.nio.ByteBuffer buffer = java.nio.ByteBuffer.allocate(16).order(java.nio.ByteOrder.BIG_ENDIAN);
+        buffer.putLong(packPosition(x, y, z));
+        writeVarInt(buffer, material.ordinal());
+        byte[] data = new byte[buffer.position()];
+        buffer.flip();
+        buffer.get(data);
+        player.sendPacket(0x09, data);
     }
     
     private void sendBlockBreakReset(PlayerInterface player, int x, int y, int z) {
-        player.sendPacket(0x0C, new byte[]{(byte) x, (byte) y, (byte) z, (byte) 10});
+        sendBlockBreakAnimation(player, x, y, z, -1);
     }
     
     private void sendBlockBreakAnimation(PlayerInterface player, int x, int y, int z, int stage) {
-        player.sendPacket(0x0C, new byte[]{(byte) x, (byte) y, (byte) z, (byte) stage});
+        java.nio.ByteBuffer buffer = java.nio.ByteBuffer.allocate(24).order(java.nio.ByteOrder.BIG_ENDIAN);
+        writeVarInt(buffer, player.getEntityId());
+        buffer.putLong(packPosition(x, y, z));
+        buffer.put((byte) stage);
+        byte[] data = new byte[buffer.position()];
+        buffer.flip();
+        buffer.get(data);
+        player.sendPacket(0x08, data);
+    }
+
+    private long packPosition(int x, int y, int z) {
+        return ((long) (x & 0x3FFFFFF) << 38) |
+               ((long) (z & 0x3FFFFFF) << 12) |
+               (y & 0xFFF);
+    }
+
+    private void writeVarInt(java.nio.ByteBuffer buffer, int value) {
+        while ((value & ~0x7F) != 0) {
+            buffer.put((byte) ((value & 0x7F) | 0x80));
+            value >>>= 7;
+        }
+        buffer.put((byte) value);
+    }
+
+    private void damageHeldTool(Player player, Material block) {
+        int heldSlot = Math.max(0, Math.min(8, player.getMainHand()));
+        ItemStack tool = player.getInventory().getItem(heldSlot);
+        if (tool == null || tool.isUnbreakable() || !ToolDurabilityManager.isTool(tool.getType()) ||
+            !ToolDurabilityManager.canHarvestBlock(tool.getType(), block)) {
+            return;
+        }
+        tool.setDurability((short) (tool.getDurability() + 1));
+        if (tool.getDurability() >= ToolDurabilityManager.getToolDurability(tool.getType())) {
+            player.getInventory().setItem(heldSlot, null);
+        }
     }
     
     private void sendBlockBreakSound(PlayerInterface player, int x, int y, int z, Material material) {

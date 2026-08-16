@@ -97,10 +97,17 @@ public class ServerConfig {
         if (Files.exists(CONFIG_PATH)) {
             try (InputStream in = Files.newInputStream(CONFIG_PATH)) {
                 Yaml yaml = new Yaml();
-                Map<String, Object> data = yaml.load(in);
-                if (data != null) {
+                Object loaded = yaml.load(in);
+                if (loaded instanceof Map<?, ?> map) {
+                    Map<String, Object> data = new HashMap<>();
+                    for (Map.Entry<?, ?> entry : map.entrySet()) {
+                        if (entry.getKey() != null) {
+                            data.put(String.valueOf(entry.getKey()), entry.getValue());
+                        }
+                    }
                     config.applyProperties(data);
                 }
+                config.validate();
                 logger.info("Loaded server configuration from {}", CONFIG_PATH);
             } catch (IOException e) {
                 logger.error("Failed to load server configuration", e);
@@ -112,8 +119,33 @@ public class ServerConfig {
         
         return config;
     }
+
+    private void validate() {
+        port = Math.max(1, Math.min(65535, port));
+        maxPlayers = Math.max(1, maxPlayers);
+        viewDistance = Math.max(2, Math.min(32, viewDistance));
+        simulationDistance = Math.max(2, Math.min(32, simulationDistance));
+        regionSize = Math.max(1, regionSize);
+        tickRate = Math.max(1, Math.min(100, tickRate));
+        networkCompressionThreshold = Math.max(-1, networkCompressionThreshold);
+        rateLimit = Math.max(1, rateLimit);
+        spawnProtection = Math.max(0, spawnProtection);
+        maxTickTime = Math.max(1, maxTickTime);
+        maxWorldSize = Math.max(1, maxWorldSize);
+        playerIdleTimeout = Math.max(0, playerIdleTimeout);
+        viewDistanceChunks = Math.max(2, Math.min(32, viewDistanceChunks));
+        chatDistance = Math.max(0, chatDistance);
+        antiXrayMode = Math.max(1, antiXrayMode);
+        antiXrayMaxWeight = Math.max(0, antiXrayMaxWeight);
+        entityActivationRangeAnimal = Math.max(0, entityActivationRangeAnimal);
+        entityActivationRangeMonster = Math.max(0, entityActivationRangeMonster);
+        entityActivationRangeMisc = Math.max(0, entityActivationRangeMisc);
+        entityActivationRangeFlying = Math.max(0, entityActivationRangeFlying);
+        chunksPerTick = Math.max(1, chunksPerTick);
+        autoSaveInterval = Math.max(1, autoSaveInterval);
+        networkCompressionLevel = Math.max(-1, Math.min(9, networkCompressionLevel));
+    }
     
-    @SuppressWarnings("unchecked")
     private void applyProperties(Map<String, Object> data) {
         serverName = getString(data, "server-name", serverName);
         port = getInt(data, "port", port);
@@ -288,8 +320,8 @@ public class ServerConfig {
         data.put("bungee-cord", bungeeCord);
         data.put("bungee-cord-secret", bungeeCordSecret);
         
-        try {
-            yaml.dump(data, Files.newBufferedWriter(CONFIG_PATH));
+        try (java.io.BufferedWriter writer = Files.newBufferedWriter(CONFIG_PATH)) {
+            yaml.dump(data, writer);
         } catch (IOException e) {
             logger.error("Failed to save server configuration", e);
         }
