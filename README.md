@@ -13,19 +13,19 @@ Custom Minecraft: Java Edition server implementation targeting protocol 1.20.4.
 Install the supplied plugin JARs into the local test directory:
 
 ```bash
-./setup-test-plugins.sh
+bash setup-test-plugins.sh
 ```
 
 Start BlazingMC with a 1 GB heap:
 
 ```bash
-./run-test-server.sh
+bash run-test-server.sh
 ```
 
 Use a different plugin directory with:
 
 ```bash
-BLAZINGMC_PLUGIN_DIR=/path/to/plugins ./run-test-server.sh
+BLAZINGMC_PLUGIN_DIR=/path/to/plugins bash run-test-server.sh
 ```
 
 The installer excludes the duplicate `Chunky-Bukkit-1.4.40(1).jar` file. The loader scans plugin metadata, checks required dependencies, isolates class loaders, registers commands and events, schedules tasks, and reports unsupported plugins without stopping the server.
